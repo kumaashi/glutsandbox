@@ -302,11 +302,11 @@ struct Buffer {
 		printf("%s : %016llX\n", __FUNCTION__, (uint64_t)this);
 		glDeleteBuffers(1, &id);
 	}
-	Buffer(const void *buffer, size_t size) {
+	Buffer(const void *buffer, size_t size, GLenum type = GL_ARRAY_BUFFER) {
 		glGenBuffers(1, &id);
-		glBindBuffer(GL_ARRAY_BUFFER, id);
-		glBufferData(GL_ARRAY_BUFFER, size, buffer, GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(type, id);
+		glBufferData(type, size, buffer, type == GL_SHADER_STORAGE_BUFFER ? GL_DYNAMIC_COPY : GL_STATIC_DRAW);
+		glBindBuffer(type, 0);
 	}
 	GLuint Get() {
 		return id;
@@ -317,8 +317,8 @@ struct Buffer {
 	void End() {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
-	void DrawArrays(GLenum mode, GLuint count) {
-		glDrawArrays(mode, 0, count); // GL_TRIANGLES
+	void DrawArrays(GLenum mode, GLuint count, GLuint instanceCount = 1) {
+		glDrawArraysInstanced(mode, 0, count, instanceCount);
 	}
 };
 
@@ -432,8 +432,46 @@ struct Screen {
 	std::vector<Layout *> vertexlayouts;
 	std::vector<Shader *> shaders;
 
-	std::map<std::string, std::vector<float>>   uniformmap_float;
-	std::map<std::string, std::vector<int32_t>> uniformmap_integer;
+	template<typename T>
+	struct UniformData {
+		T *buf = nullptr;
+		size_t count = 0;
+		UniformData(T *src, size_t c) {
+			buf = src;
+			count = c;
+		}
+		size_t GetCount() {
+			return count;
+		}
+		T *GetData() {
+			return buf;
+		}
+	};
+	struct Float4 {
+		union {
+			float data[4];
+			float raw[4];
+		};
+	};
+	struct Float4x4 {
+		union {
+			float data[4][4];
+			float raw[16];
+		};
+	};
+	struct Int4 {
+		union {
+			int32_t data[4];
+			int32_t raw[16];
+		};
+	};
+	using UniformFloat4Data = UniformData<Float4>;
+	using UniformFloat4x4Data = UniformData<Float4x4>;
+	using UniformInt4Data = UniformData<int32_t>;
+
+	std::map<std::string, UniformFloat4Data *>   uniformmap_float4;
+	std::map<std::string, UniformFloat4x4Data *> uniformmap_float4x4;
+	std::map<std::string, UniformInt4Data *>     uniformmap_int4;
 
 	struct VertexFormat {
 		float position[3];
@@ -479,10 +517,10 @@ struct Screen {
 		shaders.push_back(new Shader("shader/vs_present.glsl", nullptr, "shader/fs_present.glsl"));
 	}
 	
-	void Draw(int index, int number) {
+	void Draw(int index, int number, int instanceCount = 1) {
 		auto buffer = vertexbuffers[index];
 		if(buffer) {
-			buffer->DrawArrays(GL_TRIANGLES, number);
+			buffer->DrawArrays(GL_TRIANGLES, number, instanceCount);
 		}
 	}
 	~Screen() {
@@ -517,40 +555,35 @@ struct Screen {
 		if(vertex) vertex->Begin();
 		if(layout) layout->Set();
 		
-		std::vector<float> vinfo = {float(width), float(height), 0, frameTime};
-		SetUniform("info", vinfo);
+		Float4 vinfo = { float(width), float(height), 0, frameTime };
+		UniformFloat4Data uinfo(&vinfo, 1);;
+		SetUniform("info", &uinfo);
 		
-		for(auto &pair : uniformmap_float) {
+		for(auto &pair : uniformmap_float4) {
 			auto & name = pair.first;
-			auto & vdata = pair.second;
-			auto size = vdata.size();
+			auto & udata = pair.second;
+			auto count = udata->GetCount();
+			auto pdata = udata->GetData();
 			auto loc = glGetUniformLocation(shader->Get(), name.c_str());
-			switch(size) {
-			case 4:
-				glUniform4fv(loc, 1, vdata.data());
-				break;
-			case 16:
-				glUniformMatrix4fv(loc,  1, GL_FALSE, vdata.data());
-				break;
-			default:
-				glUniform1fv(loc, size, vdata.data());
-				break;
-			}
+			glUniform4fv(loc, count, (const GLfloat *)pdata);
 		}
 		
-		for(auto &pair : uniformmap_integer) {
+		for(auto &pair : uniformmap_float4x4) {
 			auto & name = pair.first;
-			auto & vdata = pair.second;
-			auto size = vdata.size();
+			auto & udata = pair.second;
+			auto count = udata->GetCount();
+			auto pdata = udata->GetData();
 			auto loc = glGetUniformLocation(shader->Get(), name.c_str());
-			switch(size) {
-			case 4:
-				glUniform4iv(loc, 1, vdata.data());
-				break;
-			default:
-				glUniform1iv(loc, size, vdata.data());
-				break;
-			}
+			glUniformMatrix4fv(loc,  count, GL_FALSE, (const GLfloat *)pdata);
+		}
+		
+		for(auto &pair : uniformmap_int4) {
+			auto & name = pair.first;
+			auto & udata = pair.second;
+			auto count = udata->GetCount();
+			auto pdata = udata->GetData();
+			auto loc = glGetUniformLocation(shader->Get(), name.c_str());
+			glUniform4iv(loc, count, pdata);
 		}
 	}
 	
@@ -572,11 +605,14 @@ struct Screen {
 		frameTime += 1.0f / 60.0f;
 	}
 	
-	void SetUniform(std::string name, std::vector<float> &vdata) {
-		uniformmap_float[name] = vdata;
+	void SetUniform(std::string name, UniformFloat4Data *vdata) {
+		uniformmap_float4[name] = vdata;
 	}
-	void SetUniform(std::string name, std::vector<int32_t> &vdata) {
-		uniformmap_integer[name] = vdata;
+	void SetUniform(std::string name, UniformFloat4x4Data *vdata) {
+		uniformmap_float4x4[name] = vdata;
+	}
+	void SetUniform(std::string name, UniformInt4Data *vdata) {
+		uniformmap_int4[name] = vdata;
 	}
 	int GetWidth() { return width; }
 	int GetHeight() { return height; }
@@ -602,27 +638,29 @@ void renderFrameFunc(void) {
 	float cn = cos(screen->GetFrameTime());
 	float sn = sin(screen->GetFrameTime());
 	auto view = glm::lookAt(
-				glm::vec3(3 * cn, 3, -3 * sn),
+				glm::vec3(5 * cn, 5, -5 * sn),
 				glm::vec3(0, 0, 0),
 				glm::vec3(0, 1, 0));
 	auto proj = glm::perspective(glm::radians(90.0f), faspect, fnear, ffar);
-	std::vector<float> vView;
-	std::vector<float> vProj;
-	float * pview =  glm::value_ptr(view);
-	float * pproj =  glm::value_ptr(proj);
-	for(int i = 0 ; i < 16; i++) {
-		vView.push_back(pview[i]);
-		vProj.push_back(pproj[i]);
+	#define INSTANCE_MAX 512
+	std::vector<Screen::Float4> vdata;
+	for(int i = 0 ; i < INSTANCE_MAX; i++) {
+		float findex = float(i);
+		vdata.push_back({findex, findex, findex, findex});
 	}
-	screen->SetUniform("view", vView);
-	screen->SetUniform("proj", vProj);
+	Screen::UniformFloat4Data InstanceData((Screen::Float4 *)vdata.data(), vdata.size());
+	Screen::UniformFloat4x4Data ViewData((Screen::Float4x4 *)glm::value_ptr(view), 1);
+	Screen::UniformFloat4x4Data ProjData((Screen::Float4x4 *)glm::value_ptr(proj), 1);
+	screen->SetUniform("instance", &InstanceData);
+	screen->SetUniform("view", &ViewData);
+	screen->SetUniform("proj", &ProjData);
 	screen->Begin(0);
 	glScissor(0, 0, width, height);
 	glViewport(0, 0, width, height);
 	glClearColor(0, 0.4, 0.7, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	screen->Draw(0, 36);
+	screen->Draw(0, 36, INSTANCE_MAX);
 	screen->End(0);
 
 	screen->Begin(1, true);
@@ -686,6 +724,17 @@ void dumpInfo(void) {
 	printf("Renderer: %s\n", glGetString(GL_RENDERER));
 	printf("Version: %s\n",  glGetString(GL_VERSION));
 	printf("GLSL: %s\n",     glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+	GLint value = 0;
+	glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS        , &value);  printf("GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS        = %d\n",  value);
+	glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE             , &value);  printf("GL_MAX_SHADER_STORAGE_BLOCK_SIZE             = %d\n",  value);
+	glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS          , &value);  printf("GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS          = %d\n",  value);
+	glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS        , &value);  printf("GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS        = %d\n",  value);
+	glGetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS        , &value);  printf("GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS        = %d\n",  value);
+	glGetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS    , &value);  printf("GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS    = %d\n",  value);
+	glGetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS , &value);  printf("GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS = %d\n",  value);
+	glGetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS         , &value);  printf("GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS         = %d\n",  value);
+	glGetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS        , &value);  printf("GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS        = %d\n",  value);
 }
 
 int main(int argc, char** argv) {
