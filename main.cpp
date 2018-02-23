@@ -13,8 +13,8 @@
 int width = 1280;
 int height = 720;
 enum {
-	SHADOW_MAP_WIDTH  = 2048,
-	SHADOW_MAP_HEIGHT = 2048,
+	SHADOW_MAP_WIDTH  = 4096 / 2,
+	SHADOW_MAP_HEIGHT = 4096 / 2,
 };
 
 
@@ -653,14 +653,26 @@ void renderFrameFunc(void) {
 	auto faspect = float(width) / float(height);
 	auto fnear = 0.1f;
 	auto ffar = 256.0f;
-	float cn = cos(screen->GetFrameTime());
-	float sn = sin(screen->GetFrameTime());
+	float cn = cos(0.5);
+	float sn = sin(0.5);
 	auto viewShadow = glm::lookAt(
 				glm::vec3(5 * cn, 5, -5 * sn),
 				glm::vec3(0, 0, 0),
 				glm::vec3(0, 1, 0));
+	const float pos_delta = 0.01;
+	static float pos_x = 0.0;
+	static float pos_y = 5.0;
+	static float pos_z = 5.0;
+	if(GetAsyncKeyState('A') & 0x8000) pos_x -= pos_delta;
+	if(GetAsyncKeyState('D') & 0x8000) pos_x += pos_delta;
+	if(GetAsyncKeyState('W') & 0x8000) pos_z -= pos_delta;
+	if(GetAsyncKeyState('S') & 0x8000) pos_z += pos_delta;
+	if(GetAsyncKeyState('R') & 0x8000) pos_y += pos_delta;
+	if(GetAsyncKeyState('F') & 0x8000) pos_y -= pos_delta;
+	
+	
 	auto view = glm::lookAt(
-				glm::vec3(0, 5, 5),
+				glm::vec3(pos_x, pos_y, pos_z),
 				glm::vec3(0, 0, 0),
 				glm::vec3(0, 1, 0));
 	
@@ -690,18 +702,18 @@ void renderFrameFunc(void) {
 	screen->SetUniform("config", &ConfigData);
 
 	{
-
+		glColorMask(false, false, false, false);
 		screen->Begin(0);
 		glScissor(0, 0, SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT);
 		glViewport(0, 0, SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT);
 		glClearColor(0, 0.0, 0.0, 1);
 		glClearDepth(1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glColorMask(false, false, false, false);
 		screen->Draw(0, 36, INSTANCE_MAX);
 		screen->End(0);
 	}
 	{
+		glColorMask(true, true, true, true);
 		vconfig[0].data[0] = 0;
 		auto rendertarget = screen->GetRenderTarget(0);
 		screen->Begin(1);
@@ -717,7 +729,6 @@ void renderFrameFunc(void) {
 		glClearColor(0, 0.0, 0.0, 1);
 		glClearDepth(1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glColorMask(true, true, true, true);
 		screen->Draw(0, 36, INSTANCE_MAX);
 		screen->End(1);
 	}
