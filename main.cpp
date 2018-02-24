@@ -530,8 +530,8 @@ struct Screen {
 	}
 	void ReloadShader() {
 		DeleteShader();
-		shaders.push_back(new Shader("shader/vs.glsl", nullptr, "shader/fs.glsl"));
-		shaders.push_back(new Shader("shader/vs.glsl", nullptr, "shader/fs.glsl"));
+		shaders.push_back(new Shader("shader/vs.glsl", "shader/gs.glsl", "shader/fs.glsl"));
+		shaders.push_back(new Shader("shader/vs.glsl", "shader/gs.glsl", "shader/fs.glsl"));
 		shaders.push_back(new Shader("shader/vs_present.glsl", nullptr, "shader/fs_present.glsl"));
 	}
 	
@@ -655,11 +655,8 @@ void renderFrameFunc(void) {
 	auto ffar = 256.0f;
 	float cn = cos(0.5);
 	float sn = sin(0.5);
-	auto viewShadow = glm::lookAt(
-				glm::vec3(5 * cn, 5, -5 * sn),
-				glm::vec3(0, 0, 0),
-				glm::vec3(0, 1, 0));
-	const float pos_delta = 0.01;
+
+	const float pos_delta = 0.05;
 	static float pos_x = 0.0;
 	static float pos_y = 5.0;
 	static float pos_z = 5.0;
@@ -670,21 +667,24 @@ void renderFrameFunc(void) {
 	if(GetAsyncKeyState('R') & 0x8000) pos_y += pos_delta;
 	if(GetAsyncKeyState('F') & 0x8000) pos_y -= pos_delta;
 	
-	
+	auto viewShadow = glm::lookAt(
+				glm::vec3(5 * cn, 5, -5 * sn),
+				glm::vec3(0, 0, 0),
+				glm::vec3(0, 1, 0));
 	auto view = glm::lookAt(
 				glm::vec3(pos_x, pos_y, pos_z),
 				glm::vec3(0, 0, 0),
 				glm::vec3(0, 1, 0));
 	
-	Screen::UniformFloat4x4Data ViewData((Float4x4 *)glm::value_ptr(view), 1);
-	screen->SetUniform("view", &ViewData);
-	Screen::UniformFloat4x4Data ViewShadowData((Float4x4 *)glm::value_ptr(viewShadow), 1);
-	screen->SetUniform("viewShadow", &ViewShadowData);
 	auto projShadow = glm::ortho<float>(-10,10,-10,10,-10,20);
 	auto proj = glm::perspective(glm::radians(90.0f), faspect, fnear, ffar);
+	Screen::UniformFloat4x4Data ViewData((Float4x4 *)glm::value_ptr(view), 1);
+	Screen::UniformFloat4x4Data ViewShadowData((Float4x4 *)glm::value_ptr(viewShadow), 1);
 	Screen::UniformFloat4x4Data ProjData((Float4x4 *)glm::value_ptr(proj), 1);
-	screen->SetUniform("proj", &ProjData);
 	Screen::UniformFloat4x4Data ProjShadowData((Float4x4 *)glm::value_ptr(projShadow), 1);
+	screen->SetUniform("view", &ViewData);
+	screen->SetUniform("proj", &ProjData);
+	screen->SetUniform("viewShadow", &ViewShadowData);
 	screen->SetUniform("projShadow", &ProjShadowData);
 
 	#define INSTANCE_MAX 512
@@ -712,6 +712,7 @@ void renderFrameFunc(void) {
 		screen->Draw(0, 36, INSTANCE_MAX);
 		screen->End(0);
 	}
+	
 	{
 		glColorMask(true, true, true, true);
 		vconfig[0].data[0] = 0;
@@ -733,33 +734,35 @@ void renderFrameFunc(void) {
 		screen->End(1);
 	}
 	
-	glColorMask(true, true, true, true);
-	screen->Begin(2, true);
-	glScissor(0, 0, width, height);
-	glViewport(0, 0, width, height);
-	glClearColor(0, 2.4, 0.7, 1);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	{
-		auto rendertarget = screen->GetRenderTarget(1);
-		std::vector<Texture *> vcolortex;
-		std::vector<Texture *> vdepthtex;
-		rendertarget->GetColorTexture(vcolortex);
-		rendertarget->GetDepthTexture(vdepthtex);
-		int index = 0;
-		auto shader = screen->GetShader(2);
-		for(auto &t : vcolortex) {
-			auto name = std::string("color_tex") + std::to_string(index);
-			t->Bind(index, glGetUniformLocation(shader->Get(), name.c_str()));
-			index++;
+		glColorMask(true, true, true, true);
+		screen->Begin(2, true);
+		glScissor(0, 0, width, height);
+		glViewport(0, 0, width, height);
+		glClearColor(0, 2.4, 0.7, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		{
+			auto rendertarget = screen->GetRenderTarget(1);
+			std::vector<Texture *> vcolortex;
+			std::vector<Texture *> vdepthtex;
+			rendertarget->GetColorTexture(vcolortex);
+			rendertarget->GetDepthTexture(vdepthtex);
+			int index = 0;
+			auto shader = screen->GetShader(2);
+			for(auto &t : vcolortex) {
+				auto name = std::string("color_tex") + std::to_string(index);
+				t->Bind(index, glGetUniformLocation(shader->Get(), name.c_str()));
+				index++;
+			}
+			for(auto &t : vdepthtex) {
+				auto name = std::string("depth_tex");
+				t->Bind(index, glGetUniformLocation(shader->Get(), name.c_str()));
+				index++;
+			}
 		}
-		for(auto &t : vdepthtex) {
-			auto name = std::string("depth_tex");
-			t->Bind(index, glGetUniformLocation(shader->Get(), name.c_str()));
-			index++;
-		}
+		screen->Draw(0, 36);
+		screen->End(2);
 	}
-	screen->Draw(0, 36);
-	screen->End(2);
 
 	screen->AdvanceFrame();
 	glutSwapBuffers();

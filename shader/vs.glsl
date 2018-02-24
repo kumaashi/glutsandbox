@@ -1,9 +1,17 @@
 #version 450
-in vec3 pos;
-out vec2 v_uv;
+in  vec3 pos;
 
-out vec4 v_pos;
-out vec4 v_shadow_pos;
+out  vec2 v_uv;
+out  vec4 v_pos;
+out  vec4 v_shadow_pos;
+flat out int v_id;
+
+out  vec2 gs_uv;
+out  vec4 gs_pos;
+out  vec4 gs_instance_pos;
+out  vec3 gs_dist_pos;
+flat out int gs_id;
+
 uniform vec4 info;
 uniform vec4 config;
 uniform vec4 instance[512];
@@ -38,35 +46,25 @@ float noise(vec3 p){
     return o4.y * d.y + o4.x * (1.0 - d.y);
 }
 
-void main() {
-	v_uv = pos.xy;
-	vec3 rpos = pos * 0.2;
-	const float idmult = gl_InstanceID;
+vec3 get_dist_pos(int id) {
 	const float width = 3.0;
-	vec4 ipos = instance[gl_InstanceID] * 0.1;
-	rpos.x +=  cos(ipos.y * idmult * 5.11112 * 0.01) * 4.0; // ((noise(rpos.xyz * width + vec3(idmult))) * 2.0 - 1.0);
-	rpos.y +=  sin(ipos.x * idmult * 7.11112 * 0.02) * 3.0; // ((noise(rpos.yzx * width + vec3(idmult))) * 2.0 - 1.0);
-	rpos.z += -cos(ipos.z * idmult * 9.11112 * 0.01) * 3.0; // ((noise(rpos.zxy * width + vec3(idmult))) * 2.0 - 1.0);
-	v_pos = vec4(rpos, 1.0);
-	
-	if(gl_InstanceID == 0) {
-		vec3 p = pos;
-		p.y  *= 0.1;
-		p.xz *= 10.0;
-		p.y  -= 1.0;
-		v_pos = vec4(p, 1.0);
-	}
+	const float idmult = id;
+	vec4 ipos = instance[id] * 0.1;
+	float x =  cos(ipos.y * idmult * 5.11112 * 0.01 + info.w * 0.03) * 4.0; // ((noise(rpos.xyz * width + vec3(idmult))) * 2.0 - 1.0);
+	float y =  sin(ipos.x * idmult * 7.11112 * 0.02 + info.w * 0.03) * 3.0; // ((noise(rpos.yzx * width + vec3(idmult))) * 2.0 - 1.0);
+	float z = -cos(ipos.z * idmult * 9.11112 * 0.01 + info.w * 0.03) * 3.0; // ((noise(rpos.zxy * width + vec3(idmult))) * 2.0 - 1.0);
+	return vec3(x, y, z);
+}
 
+void main_pass() {
+	gs_uv = pos.xy;
+	gs_pos = vec4(pos, 1.0);
+	gs_id = gl_InstanceID;
+	gs_instance_pos = instance[gl_InstanceID];
+	gs_dist_pos = get_dist_pos(gs_id);
+	gl_Position = gs_pos;
+}
 
-	if(config.x < 0.5) {
-		gl_Position = proj * view * v_pos;
-		mat4 biasMatrix;
-		biasMatrix[0] = vec4(0.5, 0.0, 0.0, 0.0);
-		biasMatrix[1] = vec4(0.0, 0.5, 0.0, 0.0);
-		biasMatrix[2] = vec4(0.0, 0.0, 0.5, 0.0);
-		biasMatrix[3] = vec4(0.5, 0.5, 0.5, 1.0);
-		v_shadow_pos = biasMatrix * projShadow * viewShadow * v_pos;
-	} else {
-		gl_Position = projShadow * viewShadow * v_pos;
-	}
+void main() {
+	main_pass();
 }
