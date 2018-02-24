@@ -15,11 +15,17 @@ void main() {
 	vec2 uv = v_uv * 0.5 + 0.5;
 	FragColor = vec4(0.0);
 	FragColor += texture(color_tex0, uv);
-	FragColor += texture(color_tex1, uv);
+	vec3 N = texture(color_tex1, uv).xyz;
+	float cn = cos(0.5);
+	float sn = sin(0.5);
+	vec3 L = normalize(vec3(5.0 * cn, 5.0, -5.0 * sn));
+	FragColor *= max(0.2, dot(L, N));
 	FragColor += texture(color_tex2, uv);
 	FragColor += texture(color_tex3, uv);
-	FragColor /= 5.0;
-	if(uv.x > 0.5) {
+	if(uv.x < 0.3333) {
+		FragColor = vec4(N, 1.0);
+	}
+	if(uv.x > 0.66666) {
 		FragColor = vec4( pow(texture(depth_tex , uv).r, 32.0) );
 	}
 }

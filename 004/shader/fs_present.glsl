@@ -22,9 +22,11 @@ void main() {
 	FragColor *= max(0.2, dot(L, N));
 	FragColor += texture(color_tex2, uv);
 	FragColor += texture(color_tex3, uv);
-	if(uv.x > 0.5) {
+	if(uv.x < 0.3333) {
 		FragColor = vec4(N, 1.0);
-		//FragColor *= vec4( pow(texture(depth_tex , uv).r, 32.0) );
+	}
+	if(uv.x > 0.66666) {
+		FragColor = vec4( pow(texture(depth_tex , uv).r, 32.0) );
 	}
 }
 
