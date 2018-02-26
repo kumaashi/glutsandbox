@@ -26,3 +26,7 @@ glutsandbox
 
 ![image](https://github.com/kumaashi/glutsandbox/blob/master/image/image006.png)
 
+- 007 - cheap screen space reflection shading.
+
+![image](https://github.com/kumaashi/glutsandbox/blob/master/image/image007.png)
+

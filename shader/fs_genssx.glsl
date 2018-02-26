@@ -1,10 +1,10 @@
 #version 450
 
-layout(binding=0) uniform sampler2D color_tex0;
-layout(binding=0) uniform sampler2D color_tex1;
-layout(binding=0) uniform sampler2D color_tex2;
-layout(binding=0) uniform sampler2D color_tex3;
-layout(binding=1) uniform sampler2D depth_tex;
+uniform sampler2D color_tex0;
+uniform sampler2D color_tex1;
+uniform sampler2D color_tex2;
+uniform sampler2D color_tex3;
+uniform sampler2D depth_tex;
 
 uniform vec4 info;
 in  vec2 v_uv;
