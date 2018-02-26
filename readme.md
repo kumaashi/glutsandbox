@@ -22,3 +22,7 @@ glutsandbox
 
 ![image](https://github.com/kumaashi/glutsandbox/blob/master/image/image005.png)
 
+- 006 - cheap deferred shading, and blur etc.
+
+![image](https://github.com/kumaashi/glutsandbox/blob/master/image/image006.png)
+
