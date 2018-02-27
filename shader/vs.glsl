@@ -50,9 +50,9 @@ vec3 get_dist_pos(int id) {
 	const float width = 3.0;
 	const float idmult = id;
 	vec4 ipos = instance[id] * 0.1;
-	float x =  cos(ipos.y * idmult * 5.11112 * 0.01 + info.w * 0.1) * 4.0; // ((noise(rpos.xyz * width + vec3(idmult))) * 2.0 - 1.0);
-	float y =  sin(ipos.x * idmult * 7.11112 * 0.02 + info.w * 0.2) * 3.0; // ((noise(rpos.yzx * width + vec3(idmult))) * 2.0 - 1.0);
-	float z = -cos(ipos.z * idmult * 9.11112 * 0.01 + info.w * 0.3) * 3.0; // ((noise(rpos.zxy * width + vec3(idmult))) * 2.0 - 1.0);
+	float x =  cos(ipos.y * idmult * 5.11112 * 0.01 + info.w * 0.001) * 4.0; // ((noise(rpos.xyz * width + vec3(idmult))) * 2.0 - 1.0);
+	float y =  sin(ipos.x * idmult * 7.11112 * 0.02 + info.w * 0.002) * 3.0; // ((noise(rpos.yzx * width + vec3(idmult))) * 2.0 - 1.0);
+	float z = -cos(ipos.z * idmult * 9.11112 * 0.01 + info.w * 0.003) * 3.0; // ((noise(rpos.zxy * width + vec3(idmult))) * 2.0 - 1.0);
 	return vec3(x, y, z);
 }
 

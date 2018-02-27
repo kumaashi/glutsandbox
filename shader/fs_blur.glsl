@@ -30,7 +30,7 @@ void main() {
 	const float shadow_gain = 1.00;
 	if(config.w > 0.5) {
 		FragColor.x = blur13(color_tex0, uv, info.xy, vec2(1, 0) * ssao_gain).x;
-		FragColor.y = blur13(color_tex0, uv, info.xy, vec2(1, 0) * emit_gain).y;
+		FragColor.y = pow(blur13(color_tex0, uv, info.xy, vec2(1, 0) * emit_gain).y, 3.0);
 		FragColor.z = blur13(color_tex0, uv, info.xy, vec2(1, 0) * shadow_gain).z;
 	} else {
 		FragColor.x = blur13(color_tex0, uv, info.xy, vec2(0, 1) * ssao_gain).x;

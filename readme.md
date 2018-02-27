@@ -30,3 +30,8 @@ glutsandbox
 
 ![image](https://github.com/kumaashi/glutsandbox/blob/master/image/image007.png)
 
+- 008 - Screen-Door Transparency(Stipple Transparency)
+
+![image](https://github.com/kumaashi/glutsandbox/blob/master/image/image008.png)
+
+
