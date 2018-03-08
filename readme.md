@@ -1,6 +1,11 @@
 glutsandbox
 =============
 
+- 009 - Combination Compute Shader with SSBO
+
+![image](https://github.com/kumaashi/glutsandbox/blob/master/image/image009.png)
+
+
 - 008 - Screen-Door Transparency[Stipple Transparency]
 
 ![image](https://github.com/kumaashi/glutsandbox/blob/master/image/image008.png)
